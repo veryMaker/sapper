@@ -1,5 +1,5 @@
-import resolve from 'rollup-plugin-node-resolve';
-import replace from 'rollup-plugin-replace';
+import resolve from '@rollup/plugin-node-resolve';
+import replace from '@rollup/plugin-replace';
 import svelte from 'rollup-plugin-svelte';
 
 const mode = process.env.NODE_ENV;
@@ -23,9 +23,7 @@ export default {
 			}),
 			resolve()
 		],
-
-		// temporary, pending Rollup 1.0
-		experimentalCodeSplitting: true
+		preserveEntrySignatures: false
 	},
 
 	server: {
@@ -45,9 +43,7 @@ export default {
 			})
 		],
 		external: ['sirv', 'polka'],
-
-		// temporary, pending Rollup 1.0
-		experimentalCodeSplitting: true
+		preserveEntrySignatures: 'strict'
 	},
 
 	serviceworker: {
@@ -59,6 +55,7 @@ export default {
 				'process.browser': true,
 				'process.env.NODE_ENV': JSON.stringify(mode)
 			})
-		]
+		],
+		preserveEntrySignatures: false
 	}
 };

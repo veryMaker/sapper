@@ -9,13 +9,13 @@ module.exports = {
 		entry: config.client.entry(),
 		output: config.client.output(),
 		resolve: {
-			extensions: ['.js', '.json', '.html'],
+			extensions: ['.mjs', '.js', '.json', '.html', '.svelte'],
 			mainFields: ['svelte', 'module', 'browser', 'main']
 		},
 		module: {
 			rules: [
 				{
-					test: /\.html$/,
+					test: /\.(html|svelte)$/,
 					use: {
 						loader: 'svelte-loader',
 						options: {
@@ -33,7 +33,7 @@ module.exports = {
 			new webpack.DefinePlugin({
 				'process.browser': true,
 				'process.env.NODE_ENV': JSON.stringify(mode)
-			}),
+			})
 		].filter(Boolean),
 		devtool: dev ? 'inline-source-map' : 'source-map'
 	},
@@ -43,13 +43,13 @@ module.exports = {
 		output: config.server.output(),
 		target: 'node',
 		resolve: {
-			extensions: ['.js', '.json', '.html'],
+			extensions: ['.mjs', '.js', '.json', '.html', '.svelte'],
 			mainFields: ['svelte', 'module', 'browser', 'main']
 		},
 		module: {
 			rules: [
 				{
-					test: /\.html$/,
+					test: /\.(html|svelte)$/,
 					use: {
 						loader: 'svelte-loader',
 						options: {

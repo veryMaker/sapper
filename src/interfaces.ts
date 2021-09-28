@@ -3,10 +3,10 @@ import { CompileResult } from './core/create_compilers/interfaces';
 
 export type Route = {
 	id: string;
-	handlers: {
+	handlers: Array<{
 		type: 'page' | 'route';
 		file: string;
-	}[];
+	}>;
 	pattern: RegExp;
 	test: (url: string) => boolean;
 	exec: (url: string) => Record<string, string>;
@@ -19,12 +19,15 @@ export type Template = {
 	stream: (req, res, data: Record<string, string | Promise<string>>) => void;
 };
 
-export type Store = {
-	get: () => any;
+export type WritableStore<T> = {
+	set: (value: T) => void;
+	update: (fn: (value: T) => T) => void;
+	subscribe: (fn: (T: any) => void) => () => void;
 };
 
 export type PageComponent = {
 	default?: boolean;
+	type?: string;
 	name: string;
 	file: string;
 };
@@ -34,7 +37,7 @@ export type Page = {
 	parts: Array<{
 		component: PageComponent;
 		params: string[];
-	}>
+	}>;
 };
 
 export type ServerRoute = {
@@ -45,13 +48,14 @@ export type ServerRoute = {
 };
 
 export type Dirs = {
-	dest: string,
-	src: string,
-	routes: string
+	dest: string;
+	src: string;
+	routes: string;
 };
 
 export type ManifestData = {
 	root: PageComponent;
+	error: PageComponent;
 	components: PageComponent[];
 	pages: Page[];
 	server_routes: ServerRoute[];
@@ -64,11 +68,19 @@ export type ReadyEvent = {
 
 export type ErrorEvent = {
 	type: string;
-	message: string;
+	error: Error & {
+		frame?: unknown;
+		loc?: {
+			file?: string;
+			line: number;
+			column: number;
+		};
+	};
 };
 
 export type FatalEvent = {
 	message: string;
+	log?: unknown;
 };
 
 export type InvalidEvent = {
@@ -77,24 +89,13 @@ export type InvalidEvent = {
 		client: boolean;
 		server: boolean;
 		serviceworker: boolean;
-	}
+	};
 };
 
 export type BuildEvent = {
 	type: string;
-	errors: Array<{ file: string, message: string, duplicate: boolean }>;
-	warnings: Array<{ file: string, message: string, duplicate: boolean }>;
+	errors: Array<{ file: string; message: string; duplicate: boolean }>;
+	warnings: Array<{ file: string; message: string; duplicate: boolean }>;
 	duration: number;
 	result: CompileResult;
 };
-
-export type FileEvent = {
-	file: string;
-	size: number;
-};
-
-export type FailureEvent = {
-
-};
-
-export type DoneEvent = {};

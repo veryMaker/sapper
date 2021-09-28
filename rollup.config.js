@@ -1,42 +1,46 @@
-import typescript from 'rollup-plugin-typescript';
-import string from 'rollup-plugin-string';
-import json from 'rollup-plugin-json';
-import resolve from 'rollup-plugin-node-resolve';
-import commonjs from 'rollup-plugin-commonjs';
+import commonjs from '@rollup/plugin-commonjs';
+import json from '@rollup/plugin-json';
+import resolve from '@rollup/plugin-node-resolve';
+import typescript from 'rollup-plugin-typescript2';
 import pkg from './package.json';
 import { builtinModules } from 'module';
 
 const external = [].concat(
 	Object.keys(pkg.dependencies),
 	Object.keys(process.binding('natives')),
-	'sapper/core.js'
+	'sapper/core.js',
+	'svelte/compiler'
 );
 
-function template(kind, external, target) {
+const tsOptions = {
+	check: !!process.env.TS_CHECK_ENABLED,
+	tsconfigOverride: {
+		compilerOptions: { module: 'esnext' }
+	}
+};
+
+function template(kind, external) {
 	return {
-		input: `templates/src/${kind}/index.ts`,
+		input: `runtime/src/${kind}/index.ts`,
 		output: {
-			file: `templates/${kind}.js`,
-			format: 'es'
+			file: `runtime/${kind}.mjs`,
+			format: 'es',
+			paths: id => id.replace('@sapper', '.')
 		},
 		external,
 		plugins: [
-			resolve(),
-			commonjs(),
-			string({
-				include: '**/*.md'
+			resolve({
+				extensions: ['.mjs', '.js', '.ts', '.json']
 			}),
-			typescript({
-				typescript: require('typescript'),
-				target
-			})
+			commonjs(),
+			typescript(tsOptions)
 		]
 	};
 }
 
 export default [
-	template('client', ['__ROOT__', '__ERROR__'], 'ES2017'),
-	template('server', builtinModules, 'ES2015'),
+	template('app', id => /^(svelte\/?|@sapper\/)/.test(id)),
+	template('server', id => /^(svelte\/?|@sapper\/)/.test(id) || builtinModules.includes(id)),
 
 	{
 		input: [
@@ -49,17 +53,18 @@ export default [
 		output: {
 			dir: 'dist',
 			format: 'cjs',
-			sourcemap: true
+			interop: false,
+			sourcemap: true,
+			chunkFileNames: '[name].js'
 		},
 		external,
 		plugins: [
 			json(),
-			resolve(),
+			resolve({
+				extensions: ['.mjs', '.js', '.ts']
+			}),
 			commonjs(),
-			typescript({
-				typescript: require('typescript')
-			})
-		],
-		experimentalCodeSplitting: true
+			typescript(tsOptions)
+		]
 	}
 ];

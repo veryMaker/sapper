@@ -1,5 +1,4 @@
 import * as assert from 'assert';
-import * as puppeteer from 'puppeteer';
 import * as api from '../../../api';
 import { walk } from '../../utils';
 import { AppRunner } from '../AppRunner';
@@ -7,38 +6,31 @@ import { AppRunner } from '../AppRunner';
 describe('with-basepath', function() {
 	this.timeout(10000);
 
-	let runner: AppRunner;
-	let page: puppeteer.Page;
-	let base: string;
+	let r: AppRunner;
 
 	// hooks
-	before(async () => {
-		await api.build({ cwd: __dirname });
-
-		await api.export({
-			cwd: __dirname,
-			basepath: '/custom-basepath'
-		});
-
-		runner = new AppRunner(__dirname, '__sapper__/build/server/server.js');
-		({ base, page } = await runner.start());
+	before('build app', () => api.build({ cwd: __dirname }));
+	before('export app', () => api.export({ cwd: __dirname, basepath: '/custom-basepath' }));
+	before('start runner', async () => {
+		r = await new AppRunner().start(__dirname);
 	});
 
-	after(() => runner.end());
+	after(() => r && r.end());
 
+	// tests
 	it('serves /custom-basepath', async () => {
-		await page.goto(`${base}/custom-basepath`);
+		await r.load('/custom-basepath');
 
-		assert.equal(
-			await page.$eval('h1', node => node.textContent),
+		assert.strictEqual(
+			await r.text('h1'),
 			'Great success!'
 		);
 	});
 
 	it('emits a basepath message', async () => {
-		await page.goto(`${base}/custom-basepath`);
+		await r.load('/custom-basepath');
 
-		assert.deepEqual(runner.messages, [{
+		assert.deepStrictEqual(r.messages, [{
 			__sapper__: true,
 			event: 'basepath',
 			basepath: '/custom-basepath'
@@ -53,11 +45,50 @@ describe('with-basepath', function() {
 
 		assert.ok(client_assets.length > 0);
 
-		assert.deepEqual(non_client_assets, [
+		assert.deepStrictEqual(non_client_assets, [
 			'custom-basepath/global.css',
 			'custom-basepath/index.html',
+			'custom-basepath/redirect-from/index.html',
+			'custom-basepath/redirect-to/index.html',
 			'custom-basepath/service-worker-index.html',
 			'custom-basepath/service-worker.js'
 		]);
+	});
+
+	it('redirects on server', async () => {
+		await r.load('/custom-basepath/redirect-from');
+
+		assert.strictEqual(
+			r.page.url(),
+			`${r.base}/custom-basepath/redirect-to`
+		);
+
+		assert.strictEqual(
+			await r.text('h1'),
+			'redirected'
+		);
+	});
+
+	it('redirects in client', async () => {
+		await r.load('/custom-basepath');
+		await r.sapper.start();
+		await r.sapper.prefetchRoutes();
+
+		await r.page.click('[href="redirect-from"]');
+		await r.wait();
+
+		assert.strictEqual(
+			r.page.url(),
+			`${r.base}/custom-basepath/redirect-to`
+		);
+
+		assert.strictEqual(
+			await r.text('h1'),
+			'redirected'
+		);
+	});
+
+	it('survives the tests with no server errors', () => {
+		assert.deepStrictEqual(r.errors, []);
 	});
 });

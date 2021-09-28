@@ -1,5 +1,5 @@
-import resolve from 'rollup-plugin-node-resolve';
-import replace from 'rollup-plugin-replace';
+import resolve from '@rollup/plugin-node-resolve';
+import replace from '@rollup/plugin-replace';
 import svelte from 'rollup-plugin-svelte';
 
 const mode = process.env.NODE_ENV;
@@ -22,15 +22,12 @@ export default {
 				emitCss: true
 			}),
 			resolve()
-		],
-
-		// temporary, pending Rollup 1.0
-		experimentalCodeSplitting: true
+		]
 	},
 
 	server: {
 		input: config.server.input(),
-		output: config.server.output(),
+		output: Object.assign({}, config.server.output(), { sourcemap: true }),
 		plugins: [
 			replace({
 				'process.browser': false,
@@ -44,10 +41,7 @@ export default {
 				preferBuiltins: true
 			})
 		],
-		external: ['sirv', 'polka'],
-
-		// temporary, pending Rollup 1.0
-		experimentalCodeSplitting: true
+		external: ['sirv', 'polka']
 	},
 
 	serviceworker: {

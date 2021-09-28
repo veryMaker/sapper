@@ -1,137 +1,175 @@
 import * as assert from 'assert';
-import * as puppeteer from 'puppeteer';
 import { build } from '../../../api';
 import { AppRunner } from '../AppRunner';
-import { wait } from '../../utils';
 
 describe('errors', function() {
 	this.timeout(10000);
 
-	let runner: AppRunner;
-	let page: puppeteer.Page;
-	let base: string;
-
-	// helpers
-	let start: () => Promise<void>;
-	let prefetchRoutes: () => Promise<void>;
-	let title: () => Promise<string>;
+	let r: AppRunner;
 
 	// hooks
-	before(async () => {
-		await build({ cwd: __dirname });
-
-		runner = new AppRunner(__dirname, '__sapper__/build/server/server.js');
-		({ base, page, start, prefetchRoutes, title } = await runner.start());
+	before('build app', () => build({ cwd: __dirname }));
+	before('start runner', async () => {
+		r = await new AppRunner().start(__dirname);
 	});
 
-	after(() => runner.end());
+	after(() => r && r.end());
 
-	it('handles missing route on server', async () => {
-		await page.goto(`${base}/nope`);
-
-		assert.equal(
-			await page.$eval('h1', node => node.textContent),
-			'404'
+	async function assertErrorPageRenders(statusCode: number) {
+		assert.strictEqual(
+			await r.text('h1'),
+			statusCode + ''
 		);
+
+		assert.ok(
+			await r.page.$eval('.error-layout', (el) => !!el),
+			'Layout did not get error in page store'
+		);
+	}
+
+	// tests
+	it('handles missing route on server', async () => {
+		await r.load('/nope');
+
+		await assertErrorPageRenders(404);
 	});
 
 	it('handles missing route on client', async () => {
-		await page.goto(base);
-		await start();
+		await r.load('/');
+		await r.sapper.start();
 
-		await page.click('[href="nope"]');
-		await wait(50);
+		await r.page.click('[href="nope"]');
+		await r.wait();
 
-		assert.equal(
-			await page.$eval('h1', node => node.textContent),
-			'404'
-		);
+		await assertErrorPageRenders(404);
 	});
 
 	it('handles explicit 4xx on server', async () => {
-		await page.goto(`${base}/blog/nope`);
+		await r.load('/blog/nope');
 
-		assert.equal(
-			await page.$eval('h1', node => node.textContent),
-			'404'
-		);
+		await assertErrorPageRenders(404);
 	});
 
 	it('handles explicit 4xx on client', async () => {
-		await page.goto(base);
-		await start();
-		await prefetchRoutes();
+		await r.load('/');
+		await r.sapper.start();
+		await r.sapper.prefetchRoutes();
 
-		await page.click('[href="blog/nope"]');
-		await wait(50);
+		await r.page.click('[href="blog/nope"]');
+		await r.wait();
 
-		assert.equal(
-			await page.$eval('h1', node => node.textContent),
-			'404'
-		);
+		await assertErrorPageRenders(404);
 	});
 
 	it('handles error on server', async () => {
-		await page.goto(`${base}/throw`);
+		await r.load('/throw');
 
-		assert.equal(
-			await page.$eval('h1', node => node.textContent),
-			'500'
-		);
+		await assertErrorPageRenders(500);
+	});
+
+	it('display correct stack trace sequences on server error referring to source file', async () => {
+		await r.load('/trace');
+
+		const stack = (await r.text('span')).split('\n');
+
+		assert.ok(stack[1] && stack[1].includes('_trace.js:2:11'));
+		assert.ok(stack[2] && stack[2].includes('trace.svelte:5:6'));
 	});
 
 	it('handles error on client', async () => {
-		await page.goto(base);
-		await start();
-		await prefetchRoutes();
+		await r.load('/');
+		await r.sapper.start();
+		await r.sapper.prefetchRoutes();
 
-		await page.click('[href="throw"]');
-		await wait(50);
+		await r.page.click('[href="throw"]');
+		await r.wait();
 
-		assert.equal(
-			await page.$eval('h1', node => node.textContent),
-			'500'
-		);
+		await assertErrorPageRenders(500);
+
+		const didLayoutGetError = await r.page.$eval('.error-layout', (el) => el);
+
+		assert.ok(didLayoutGetError);
+	});
+
+	it('displays a good error messsage when accessing "document" variable on server', async () => {
+		await r.load('/access_document');
+
+		const stack = await r.text('span');
+
+		assert.ok(stack.includes('client only'));
+	});
+
+	it('does not replace server side rendered error', async () => {
+		await r.load('/preload-reject');
+		await r.sapper.start();
+
+		await assertErrorPageRenders(500);
+	});
+
+	it('handles errors occurring in the layout preload', async () => {
+		const res = await r.load('/?layoutthrows=true');
+
+		const responseText = await res.text();
+
+		assert.ok(responseText.includes('Internal server error'), `Expected response "${responseText}" to say "Internal server error"`);
 	});
 
 	it('does not serve error page for explicit non-page errors', async () => {
-		await page.goto(`${base}/nope.json`);
+		await r.load('/nope.json');
 
-		assert.equal(
-			await page.evaluate(() => document.body.textContent),
+		assert.strictEqual(
+			await r.text('body'),
 			'nope'
 		);
+
+		const didLayoutGetError = await r.page.$$eval('.error-layout', (els) => els.length > 0);
+
+		assert.equal(didLayoutGetError, false);
 	});
 
 	it('does not serve error page for thrown non-page errors', async () => {
-		await page.goto(`${base}/throw.json`);
+		await r.load('/throw.json');
 
-		assert.equal(
-			await page.evaluate(() => document.body.textContent),
+		assert.strictEqual(
+			await r.text('body'),
 			'oops'
 		);
 	});
 
-	it('does not serve error page for async non-page error', async () => {
-		await page.goto(`${base}/async-throw.json`);
+	it('execute error page hooks', async () => {
+		await r.load('/some-throw-page');
+		await r.sapper.start();
 
-		assert.equal(
-			await page.evaluate(() => document.body.textContent),
+		assert.strictEqual(
+			await r.text('h2'),
+			'success'
+		);
+	});
+
+	it('does not serve error page for async non-page error', async () => {
+		await r.load('/async-throw.json');
+
+		assert.strictEqual(
+			await r.text('body'),
 			'oops'
 		);
 	});
 
 	it('clears props.error on successful render', async () => {
-		await page.goto(`${base}/no-error`);
-		await start();
-		await prefetchRoutes();
+		await r.load('/no-error');
+		await r.sapper.start();
+		await r.sapper.prefetchRoutes();
 
-		await page.click('[href="enhance-your-calm"]');
-		await wait(50);
-		assert.equal(await title(), '420');
+		await r.page.click('[href="enhance-your-calm"]');
+		await r.wait();
+		assert.strictEqual(await r.text('h1'), '420');
 
-		await page.goBack();
-		await wait(50);
-		assert.equal(await title(), 'No error here');
+		await r.page.goBack();
+		await r.wait();
+		assert.strictEqual(await r.text('h1'), 'No error here');
+	});
+
+	it('survives the tests with no server errors', () => {
+		assert.deepStrictEqual(r.errors, []);
 	});
 });

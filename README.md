@@ -1,19 +1,26 @@
 # sapper
 
-[Military-grade progressive web apps, powered by Svelte.](https://sapper.svelte.technology)
+[The next small thing in web development, powered by Svelte.](https://sapper.svelte.dev)
 
 
 ## What is Sapper?
 
-Sapper is a framework for building high-performance universal web apps. [Read the guide](https://sapper.svelte.technology/guide) or the [introductory blog post](https://svelte.technology/blog/sapper-towards-the-ideal-web-app-framework) to learn more.
+Sapper is a framework for building high-performance universal web apps. [Read the guide](https://sapper.svelte.dev/docs) or the [introductory blog post](https://svelte.dev/blog/sapper-towards-the-ideal-web-app-framework) to learn more.
+
+
+## SvelteKit
+
+Sapper's successor, [SvelteKit](https://kit.svelte.dev/), is currently available for use. Please see [the FAQ](https://sapper.svelte.dev/faq#version-numbers) for more details.
 
 
 ## Get started
 
 Clone the [starter project template](https://github.com/sveltejs/sapper-template) with [degit](https://github.com/rich-harris/degit)...
+When cloning you have to choose between rollup or webpack:
 
 ```bash
-npx degit sveltejs/sapper-template my-app
+npx degit "sveltejs/sapper-template#rollup" my-app
+# or: npx degit "sveltejs/sapper-template#webpack" my-app
 ```
 
 ...then install dependencies and start the dev server...
@@ -38,7 +45,7 @@ Pull requests are encouraged and always welcome. [Pick an issue](https://github.
 To install and work on Sapper locally:
 
 ```bash
-git clone git@github.com:sveltejs/sapper.git
+git clone https://github.com/sveltejs/sapper.git
 cd sapper
 npm install
 npm run dev
@@ -72,4 +79,4 @@ npm run test
 
 ## License
 
-[LIL](LICENSE)
+[MIT](LICENSE)
